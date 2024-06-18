@@ -11,16 +11,30 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     const promises = cookies.map((cookie) => {
       return new Promise((resolve, reject) => {
+        // Construct cookie details
         let cookieDetails = {
-          url: `https://${cookie.domain}${cookie.path || "/"}`,
+          url: `https://${
+            cookie.domain.startsWith(".")
+              ? cookie.domain.substring(1)
+              : cookie.domain
+          }${cookie.path || "/"}`,
           name: cookie.name,
           value: cookie.value,
-          secure: true, // Ensure cookies are set as secure
-          httpOnly: cookie.httpOnly || false,
+          secure: cookie.secure !== undefined ? cookie.secure : true, // Default to true if not specified
+          httpOnly: cookie.httpOnly !== undefined ? cookie.httpOnly : false,
           sameSite: cookie.sameSite || "lax",
         };
 
-        // Setting expiration date if available
+        // Special handling for prefixes
+        if (cookie.name.startsWith("__Host-")) {
+          cookieDetails.secure = true;
+          cookieDetails.path = "/";
+          delete cookieDetails.domain;
+        } else if (cookie.name.startsWith("__Secure-")) {
+          cookieDetails.secure = true;
+        }
+
+        // Handle expiration date
         if (cookie.expirationDate) {
           cookieDetails.expirationDate = Math.floor(cookie.expirationDate);
         } else if (cookie.session) {
@@ -31,7 +45,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           `Attempting to set cookie: ${JSON.stringify(cookieDetails)}`
         );
 
-        // Setting the cookie
+        // Set the cookie
         chrome.cookies.set(cookieDetails, (result) => {
           if (result) {
             console.log(`Set cookie: ${cookie.name}`);
@@ -49,7 +63,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       });
     });
 
-    // Resolving all promises
+    // Resolve all promises
     Promise.all(promises)
       .then(() => sendResponse({ success: true }))
       .catch((error) => sendResponse({ success: false, error: error.message }));
