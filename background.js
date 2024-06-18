@@ -65,8 +65,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     // Resolve all promises
     Promise.all(promises)
-      .then(() => sendResponse({ success: true }))
-      .catch((error) => sendResponse({ success: false, error: error.message }));
+      .then(() => {
+        console.log("All cookies set successfully.");
+        sendResponse({ success: true });
+      })
+      .catch((error) => {
+        console.error("Error setting cookies:", error.message);
+        sendResponse({ success: false, error: error.message });
+      });
 
     return true; // Required to indicate async operation
   }
