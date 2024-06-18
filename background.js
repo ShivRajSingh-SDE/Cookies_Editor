@@ -11,27 +11,27 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     const promises = cookies.map((cookie) => {
       return new Promise((resolve, reject) => {
-        const cookieDetails = {
+        let cookieDetails = {
           url: `https://${cookie.domain}${cookie.path || "/"}`,
           name: cookie.name,
           value: cookie.value,
-          path: cookie.path || "/",
-          secure: cookie.secure || false,
+          secure: true, // Ensure cookies are set as secure
           httpOnly: cookie.httpOnly || false,
-          sameSite: cookie.sameSite || "unspecified",
+          sameSite: cookie.sameSite || "lax",
         };
 
-        // If the cookie has the __Host- prefix, set additional attributes
-        if (cookie.name.startsWith("__Host-")) {
-          cookieDetails.secure = true;
-          cookieDetails.path = "/";
-          delete cookieDetails.domain;
-        }
-
+        // Setting expiration date if available
         if (cookie.expirationDate) {
           cookieDetails.expirationDate = Math.floor(cookie.expirationDate);
+        } else if (cookie.session) {
+          delete cookieDetails.expirationDate;
         }
 
+        console.log(
+          `Attempting to set cookie: ${JSON.stringify(cookieDetails)}`
+        );
+
+        // Setting the cookie
         chrome.cookies.set(cookieDetails, (result) => {
           if (result) {
             console.log(`Set cookie: ${cookie.name}`);
@@ -49,6 +49,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       });
     });
 
+    // Resolving all promises
     Promise.all(promises)
       .then(() => sendResponse({ success: true }))
       .catch((error) => sendResponse({ success: false, error: error.message }));
